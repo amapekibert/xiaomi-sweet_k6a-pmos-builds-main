@@ -6,7 +6,7 @@ on:
     - cron: '0 0 * * 5' # Run every friday at midnight
 
 env:
-  KERNEL_BRANCH: danila/spacewar-testing
+  KERNEL_BRANCH: next
 
 jobs:
   build-image:
@@ -21,8 +21,8 @@ jobs:
 
       - name: Configure git
         run: |
-          git config --global user.email "veythrix@gmail.com"
-          git config --global user.name "Veythrix"
+          git config --global user.email "amapekibert@gmail.com"
+          git config --global user.name "amapekibert"
 
       - name: Substitute placeholders in configs
         run: |
@@ -34,30 +34,34 @@ jobs:
           mkdir -p ~/.local/bin
           ln -s "$PWD/pmbootstrap/pmbootstrap.py" ~/.local/bin/pmbootstrap
           pmbootstrap --version
-
+          
       - name: Set up pmaports
         run: |
           echo -e '\n\n' | pmbootstrap init || true
           cd ~/.local/var/pmbootstrap/cache_git/pmaports
-          git remote add sc7280 https://github.com/mainlining/pmaports.git
-          DEFAULT_BRANCH=danila/spacewar-mr
-          git fetch sc7280 $DEFAULT_BRANCH
-          git reset --hard sc7280/$DEFAULT_BRANCH
+          git remote add sm7150 https://github.com/sm7150-mainline/pmaports.git
+          DEFAULT_BRANCH=$(git remote show sm7150 | awk '/HEAD branch/ {print $NF}')
+          git fetch sm7150 $DEFAULT_BRANCH
+          git reset --hard sm7150/$DEFAULT_BRANCH
 
       - name: Check kernel branch
         if: matrix.version == 'default'
         run: |
-          DEFAULT_BRANCH=danila/spacewar-testing
+          DEFAULT_BRANCH=$(curl -s https://api.github.com/repos/sm7150-mainline/linux | jq -r '.default_branch')
           echo "Default branch is $DEFAULT_BRANCH"
           echo "KERNEL_BRANCH=$DEFAULT_BRANCH" >> $GITHUB_ENV
 
       - name: Clone kernel sources
-        run: |
-          git clone https://github.com/mainlining/linux.git --single-branch --branch ${{ env.KERNEL_BRANCH }} --depth 1
+        uses: actions/checkout@v4
+        with:
+          repository: sm7150-mainline/linux
+          ref: ${{ env.KERNEL_BRANCH }}
+          path: linux
+          fetch-depth: 1
 
-      - name: Choose nothing-spacewar device in pmbootstrap to build kernel
+      - name: Choose xiaomi-sweet_k6a device in pmbootstrap to build kernel
         run: |
-          cp nothing-spacewar.cfg ~/.config/pmbootstrap_v3.cfg
+          cp xiaomi-sweet_k6a.cfg ~/.config/pmbootstrap_v3.cfg
 
       - name: Compile kernel with envkernel
         run: |
@@ -73,19 +77,19 @@ jobs:
         run: |
           mkdir out
 
-      - name: Build nothing-spacewar
+      - name: Build xiaomi-sweet_k6a
         run: |
-          cp nothing-spacewar.cfg ~/.config/pmbootstrap.cfg
-          pmbootstrap install --password 9229
+          cp xiaomi-sweet_k6a.cfg ~/.config/pmbootstrap.cfg
+          pmbootstrap install --password 123
           pmbootstrap export
-          cp /tmp/postmarketOS-export/boot.img out/boot-nothing-spacewar.img
-          cp /tmp/postmarketOS-export/nothing-spacewar.img out/rootfs-nothing-spacewar.img
+          cp /tmp/postmarketOS-export/boot.img out/boot-xiaomi-sweet_k6a.img
+          cp /tmp/postmarketOS-export/xiaomi-sweet_k6a.img out/rootfs-xiaomi-sweet_k6a.img
           xz -T0 -9e -v out/rootfs-nothing-spacewar.img
           echo -e "n\nn\ny\n" | pmbootstrap zap
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: nothing-spacewar-testing
-          path: out/*-spacewar.img*
+          name: xiaomi-sweet_k6a-${{ env.KERNEL_BRANCH }}
+          path: out/*-sweet_k6a.img*
           retention-days: 7
